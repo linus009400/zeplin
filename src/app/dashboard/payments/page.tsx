@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface PaymentLink {
   id: string;
@@ -11,18 +11,14 @@ interface PaymentLink {
   status: "active" | "inactive";
   clicks: number;
   transactions: number;
-  created: string;
+  createdAt: string;
 }
 
-const MOCK_LINKS: PaymentLink[] = [
-  { id: "PL-001", name: "프리미엄 한방 샴푸 세트", price: "680", currency: "CNY", method: "all", status: "active", clicks: 128, transactions: 34, created: "2026-03-15" },
-  { id: "PL-002", name: "K-뷰티 스킨케어 패키지", price: "1,280", currency: "CNY", method: "alipay", status: "active", clicks: 95, transactions: 22, created: "2026-03-20" },
-  { id: "PL-003", name: "전통 공예품 세트", price: "2,400", currency: "CNY", method: "wechat", status: "active", clicks: 67, transactions: 15, created: "2026-03-22" },
-  { id: "PL-004", name: "한국 식품 모음 박스", price: "520", currency: "CNY", method: "all", status: "inactive", clicks: 42, transactions: 8, created: "2026-03-10" },
-];
-
 export default function PaymentsPage() {
+  const [links, setLinks] = useState<PaymentLink[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     price: "",
@@ -33,6 +29,41 @@ export default function PaymentsPage() {
 
   const update = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const fetchLinks = async () => {
+    try {
+      const res = await fetch("/api/links");
+      const data = await res.json();
+      setLinks(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchLinks(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.name || !form.price) return;
+
+    const res = await fetch("/api/links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    if (res.ok) {
+      setForm({ name: "", price: "", currency: "CNY", method: "all", description: "" });
+      setShowCreate(false);
+      fetchLinks();
+    }
+  };
+
+  const copyLink = (id: string) => {
+    const url = `${window.location.origin}/pay/${id}`;
+    navigator.clipboard.writeText(url);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -119,7 +150,10 @@ export default function PaymentsPage() {
             >
               취소
             </button>
-            <button className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-light transition-colors">
+            <button
+              onClick={handleCreate}
+              className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-light transition-colors"
+            >
               생성하기
             </button>
           </div>
@@ -128,66 +162,83 @@ export default function PaymentsPage() {
 
       {/* Links Table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-xs text-gray-500 border-b border-gray-100 bg-gray-50/50">
-                <th className="text-left px-5 py-3.5 font-medium">상품명</th>
-                <th className="text-left px-5 py-3.5 font-medium">가격</th>
-                <th className="text-left px-5 py-3.5 font-medium">결제수단</th>
-                <th className="text-center px-5 py-3.5 font-medium">상태</th>
-                <th className="text-right px-5 py-3.5 font-medium">클릭</th>
-                <th className="text-right px-5 py-3.5 font-medium">거래</th>
-                <th className="text-right px-5 py-3.5 font-medium">생성일</th>
-                <th className="text-center px-5 py-3.5 font-medium">액션</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_LINKS.map((link) => (
-                <tr key={link.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                  <td className="px-5 py-4">
-                    <div className="text-sm font-medium text-gray-900">{link.name}</div>
-                    <div className="text-xs text-gray-400">{link.id}</div>
-                  </td>
-                  <td className="px-5 py-4 text-sm font-semibold text-gray-900">
-                    ¥ {link.price}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-xs text-gray-600">
-                      {link.method === "all" ? "Alipay + WeChat" : link.method === "alipay" ? "Alipay" : "WeChat Pay"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-center">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                      link.status === "active"
-                        ? "bg-green-50 text-green-600"
-                        : "bg-gray-100 text-gray-500"
-                    }`}>
-                      {link.status === "active" ? "활성" : "비활성"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-right text-sm text-gray-600">{link.clicks}</td>
-                  <td className="px-5 py-4 text-right text-sm text-gray-600">{link.transactions}</td>
-                  <td className="px-5 py-4 text-right text-sm text-gray-500">{link.created}</td>
-                  <td className="px-5 py-4 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100" title="링크 복사">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                      </button>
-                      <button className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100" title="QR코드">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm-11 11h7v7H3v-7z" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="p-12 text-center text-gray-400">불러오는 중...</div>
+        ) : links.length === 0 ? (
+          <div className="p-12 text-center">
+            <p className="text-gray-400 mb-4">아직 결제 링크가 없습니다</p>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-light transition-colors"
+            >
+              첫 결제 링크 만들기
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-xs text-gray-500 border-b border-gray-100 bg-gray-50/50">
+                  <th className="text-left px-5 py-3.5 font-medium">상품명</th>
+                  <th className="text-left px-5 py-3.5 font-medium">가격</th>
+                  <th className="text-left px-5 py-3.5 font-medium">결제수단</th>
+                  <th className="text-center px-5 py-3.5 font-medium">상태</th>
+                  <th className="text-right px-5 py-3.5 font-medium">클릭</th>
+                  <th className="text-right px-5 py-3.5 font-medium">거래</th>
+                  <th className="text-right px-5 py-3.5 font-medium">생성일</th>
+                  <th className="text-center px-5 py-3.5 font-medium">액션</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {links.map((link) => (
+                  <tr key={link.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                    <td className="px-5 py-4">
+                      <div className="text-sm font-medium text-gray-900">{link.name}</div>
+                      <div className="text-xs text-gray-400">{link.id}</div>
+                    </td>
+                    <td className="px-5 py-4 text-sm font-semibold text-gray-900">
+                      {link.currency === "CNY" ? "¥" : link.currency === "USD" ? "$" : "₩"} {link.price}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-xs text-gray-600">
+                        {link.method === "all" ? "Alipay + WeChat" : link.method === "alipay" ? "Alipay" : "WeChat Pay"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        link.status === "active"
+                          ? "bg-green-50 text-green-600"
+                          : "bg-gray-100 text-gray-500"
+                      }`}>
+                        {link.status === "active" ? "활성" : "비활성"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-right text-sm text-gray-600">{link.clicks}</td>
+                    <td className="px-5 py-4 text-right text-sm text-gray-600">{link.transactions}</td>
+                    <td className="px-5 py-4 text-right text-sm text-gray-500">{link.createdAt}</td>
+                    <td className="px-5 py-4 text-center">
+                      <button
+                        onClick={() => copyLink(link.id)}
+                        className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100"
+                        title="결제 링크 복사"
+                      >
+                        {copied === link.id ? (
+                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

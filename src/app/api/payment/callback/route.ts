@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCallback } from "@/lib/funpay";
+import { createTransaction, updateTransactionStatus } from "@/lib/store";
 
 /**
  * FunPay 결제 승인 콜백 (statusurl)
@@ -52,14 +53,19 @@ export async function POST(request: NextRequest) {
     }
 
     if (rescode === "0000") {
-      // 결제 성공 처리
-      // TODO: DB에 거래 정보 저장
-      // - transid: FunPay 거래번호
-      // - refno: 주문번호
-      // - mid: 가맹점 ID
-      // - servicetype: 결제수단 (S000=알리페이, S001=위챗페이)
-      // - reqamt: 결제금액
-      // - reqcur: 결제통화
+      const method = servicetype === "S000" ? "alipay" : "wechat";
+
+      createTransaction({
+        linkId: params.param2 || "",
+        transid: transid || "",
+        product: decodeURIComponent(params.product || ""),
+        method: method as "alipay" | "wechat",
+        amount: reqamt || "",
+        currency: reqcur || "",
+        krwAmount: "", // TODO: 환율 변환
+        buyerName: decodeURIComponent(params.buyername || ""),
+        status: "완료",
+      });
 
       console.log("[FunPay Callback] 결제 성공:", refno, transid);
 
