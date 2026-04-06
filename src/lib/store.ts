@@ -1,21 +1,12 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
+import { getDb, initializeDb } from "./db";
 
-const DATA_DIR = join(process.cwd(), "data");
-
-/**
- * 간단한 JSON 파일 기반 데이터 저장소
- * - 프로토타입/개발용. 운영 시 DB로 교체
- */
-function readJSON<T>(filename: string): T[] {
-  const filepath = join(DATA_DIR, filename);
-  if (!existsSync(filepath)) return [];
-  return JSON.parse(readFileSync(filepath, "utf-8"));
-}
-
-function writeJSON<T>(filename: string, data: T[]) {
-  const filepath = join(DATA_DIR, filename);
-  writeFileSync(filepath, JSON.stringify(data, null, 2), "utf-8");
+// DB 초기화 (서버 시작 시 1회)
+let dbReady: Promise<void> | null = null;
+function ensureDb() {
+  if (!dbReady) {
+    dbReady = initializeDb();
+  }
+  return dbReady;
 }
 
 // ========== 결제 링크 ==========
@@ -33,38 +24,62 @@ export interface PaymentLink {
   createdAt: string;
 }
 
-export function getPaymentLinks(): PaymentLink[] {
-  return readJSON<PaymentLink>("links.json");
+function rowToLink(row: Record<string, unknown>): PaymentLink {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    price: row.price as string,
+    currency: row.currency as string,
+    method: row.method as PaymentLink["method"],
+    description: row.description as string,
+    status: row.status as PaymentLink["status"],
+    clicks: row.clicks as number,
+    transactions: row.transactions as number,
+    createdAt: row.created_at as string,
+  };
 }
 
-export function getPaymentLink(id: string): PaymentLink | undefined {
-  return getPaymentLinks().find((l) => l.id === id);
+export async function getPaymentLinks(): Promise<PaymentLink[]> {
+  await ensureDb();
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM payment_links ORDER BY created_at DESC`;
+  return rows.map(rowToLink);
 }
 
-export function createPaymentLink(
+export async function getPaymentLink(id: string): Promise<PaymentLink | undefined> {
+  await ensureDb();
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM payment_links WHERE id = ${id}`;
+  return rows.length > 0 ? rowToLink(rows[0]) : undefined;
+}
+
+export async function createPaymentLink(
   data: Omit<PaymentLink, "id" | "clicks" | "transactions" | "createdAt" | "status">
-): PaymentLink {
-  const links = getPaymentLinks();
-  const link: PaymentLink = {
+): Promise<PaymentLink> {
+  await ensureDb();
+  const sql = getDb();
+  const id = `PL-${Date.now().toString(36)}`;
+  const createdAt = new Date().toISOString().split("T")[0];
+
+  await sql`
+    INSERT INTO payment_links (id, name, price, currency, method, description, status, clicks, transactions, created_at)
+    VALUES (${id}, ${data.name}, ${data.price}, ${data.currency}, ${data.method}, ${data.description}, 'active', 0, 0, ${createdAt})
+  `;
+
+  return {
     ...data,
-    id: `PL-${Date.now().toString(36)}`,
+    id,
     status: "active",
     clicks: 0,
     transactions: 0,
-    createdAt: new Date().toISOString().split("T")[0],
+    createdAt,
   };
-  links.push(link);
-  writeJSON("links.json", links);
-  return link;
 }
 
-export function incrementLinkClicks(id: string) {
-  const links = getPaymentLinks();
-  const link = links.find((l) => l.id === id);
-  if (link) {
-    link.clicks++;
-    writeJSON("links.json", links);
-  }
+export async function incrementLinkClicks(id: string) {
+  await ensureDb();
+  const sql = getDb();
+  await sql`UPDATE payment_links SET clicks = clicks + 1 WHERE id = ${id}`;
 }
 
 // ========== 거래 내역 ==========
@@ -83,38 +98,53 @@ export interface Transaction {
   createdAt: string;
 }
 
-export function getTransactions(): Transaction[] {
-  return readJSON<Transaction>("transactions.json");
+function rowToTransaction(row: Record<string, unknown>): Transaction {
+  return {
+    id: row.id as string,
+    linkId: row.link_id as string,
+    transid: row.transid as string,
+    product: row.product as string,
+    method: row.method as Transaction["method"],
+    amount: row.amount as string,
+    currency: row.currency as string,
+    krwAmount: row.krw_amount as string,
+    buyerName: row.buyer_name as string,
+    status: row.status as Transaction["status"],
+    createdAt: row.created_at as string,
+  };
 }
 
-export function createTransaction(
+export async function getTransactions(): Promise<Transaction[]> {
+  await ensureDb();
+  const sql = getDb();
+  const rows = await sql`SELECT * FROM transactions ORDER BY created_at DESC`;
+  return rows.map(rowToTransaction);
+}
+
+export async function createTransaction(
   data: Omit<Transaction, "id" | "createdAt">
-): Transaction {
-  const transactions = getTransactions();
-  const tx: Transaction = {
-    ...data,
-    id: `ZP-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(transactions.length + 1).padStart(3, "0")}`,
-    createdAt: new Date().toISOString(),
-  };
-  transactions.unshift(tx);
-  writeJSON("transactions.json", transactions);
+): Promise<Transaction> {
+  await ensureDb();
+  const sql = getDb();
+
+  const count = await sql`SELECT COUNT(*) as cnt FROM transactions`;
+  const num = (count[0].cnt as number) + 1;
+  const id = `ZP-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(num).padStart(3, "0")}`;
+  const createdAt = new Date().toISOString();
+
+  await sql`
+    INSERT INTO transactions (id, link_id, transid, product, method, amount, currency, krw_amount, buyer_name, status, created_at)
+    VALUES (${id}, ${data.linkId}, ${data.transid}, ${data.product}, ${data.method}, ${data.amount}, ${data.currency}, ${data.krwAmount}, ${data.buyerName}, ${data.status}, ${createdAt})
+  `;
 
   // 링크 거래 수 증가
-  const links = getPaymentLinks();
-  const link = links.find((l) => l.id === data.linkId);
-  if (link) {
-    link.transactions++;
-    writeJSON("links.json", links);
-  }
+  await sql`UPDATE payment_links SET transactions = transactions + 1 WHERE id = ${data.linkId}`;
 
-  return tx;
+  return { ...data, id, createdAt };
 }
 
-export function updateTransactionStatus(transid: string, status: Transaction["status"]) {
-  const transactions = getTransactions();
-  const tx = transactions.find((t) => t.transid === transid);
-  if (tx) {
-    tx.status = status;
-    writeJSON("transactions.json", transactions);
-  }
+export async function updateTransactionStatus(transid: string, status: Transaction["status"]) {
+  await ensureDb();
+  const sql = getDb();
+  await sql`UPDATE transactions SET status = ${status} WHERE transid = ${transid}`;
 }

@@ -3,7 +3,7 @@ import { getPaymentLinks, createPaymentLink } from "@/lib/store";
 
 // 결제 링크 목록 조회
 export async function GET() {
-  const links = getPaymentLinks();
+  const links = await getPaymentLinks();
   return NextResponse.json(links);
 }
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const link = createPaymentLink({
+    const link = await createPaymentLink({
       name,
       price,
       currency,

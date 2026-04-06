@@ -3,6 +3,6 @@ import { getTransactions } from "@/lib/store";
 
 // 거래 내역 조회
 export async function GET() {
-  const transactions = getTransactions();
+  const transactions = await getTransactions();
   return NextResponse.json(transactions);
 }

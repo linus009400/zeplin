@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const link = getPaymentLink(id);
+  const link = await getPaymentLink(id);
 
   if (!link) {
     return NextResponse.json(
@@ -16,7 +16,7 @@ export async function GET(
   }
 
   // 클릭 수 증가
-  incrementLinkClicks(id);
+  await incrementLinkClicks(id);
 
   return NextResponse.json(link);
 }

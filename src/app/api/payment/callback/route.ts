@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (rescode === "0000") {
       const method = servicetype === "S000" ? "alipay" : "wechat";
 
-      createTransaction({
+      await createTransaction({
         linkId: params.param2 || "",
         transid: transid || "",
         product: decodeURIComponent(params.product || ""),
