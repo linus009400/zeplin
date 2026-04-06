@@ -38,11 +38,19 @@ export async function POST(request: NextRequest) {
     }
 
     const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const mid = process.env.FUNPAY_MID || "";
     const orderId = `ZP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    console.log("[Payment] 환경변수 확인:", {
+      FUNPAY_MID: mid ? `${mid.slice(0, 4)}...` : "(비어있음)",
+      FUNPAY_ENV: process.env.FUNPAY_ENV || "(미설정)",
+      FUNPAY_SECRET_KEY: process.env.FUNPAY_SECRET_KEY ? "설정됨" : "(비어있음)",
+      NEXT_PUBLIC_APP_URL: appBaseUrl,
+    });
 
     const params: Record<string, string> = {
       ver: "V2",
-      mid: process.env.FUNPAY_MID || "",
+      mid,
       servicetype: SERVICE_TYPE[method as PaymentMethod],
       refno: orderId,
       reqcur: currency,
