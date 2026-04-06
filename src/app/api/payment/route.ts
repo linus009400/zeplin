@@ -57,7 +57,14 @@ export async function POST(request: NextRequest) {
       reqamt: String(amount),
       buyername: buyerName,
       product: productName,
-      trade_information: JSON.stringify({}),
+      trade_information: JSON.stringify({
+        goods_detail: [
+          {
+            goods_name: productName,
+            quantity: 1,
+          },
+        ],
+      }),
       refer_url: appBaseUrl,
       returnurl: `${appBaseUrl}/payment/complete`,
       statusurl: `${appBaseUrl}/api/payment/callback`,
