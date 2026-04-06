@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
       returnurl: `${appBaseUrl}/payment/complete`,
       statusurl: `${appBaseUrl}/api/payment/callback`,
       reqtype: reqtype || "P",
-      restype: "JSON",
     };
 
     if (email) params.email = email;
