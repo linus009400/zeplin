@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requestPayment, type PaymentMethod } from "@/lib/funpay";
+import { generateFgkey, SERVICE_TYPE, type PaymentMethod } from "@/lib/funpay";
 
+/**
+ * 결제 요청 API
+ * - fgkey를 생성하고 FunPay 폼 제출에 필요한 파라미터를 반환
+ * - 프론트엔드에서 FunPay로 직접 폼 POST (팝업)
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -14,6 +19,7 @@ export async function POST(request: NextRequest) {
       email,
       tel,
       reqtype,
+      linkId,
     } = body;
 
     // 필수값 검증
@@ -24,7 +30,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 결제수단 검증
     if (!["alipay", "wechat"].includes(method)) {
       return NextResponse.json(
         { error: "지원하지 않는 결제수단입니다." },
@@ -32,56 +37,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 주문번호 생성
+    const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const orderId = `ZP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-    console.log("[Payment] 결제 요청:", {
-      method,
+    const params: Record<string, string> = {
+      ver: "V2",
+      mid: process.env.FUNPAY_MID || "",
+      servicetype: SERVICE_TYPE[method as PaymentMethod],
+      refno: orderId,
+      reqcur: currency,
+      reqamt: String(amount),
+      buyername: buyerName,
+      product: productName,
+      trade_information: JSON.stringify({}),
+      refer_url: appBaseUrl,
+      returnurl: `${appBaseUrl}/payment/complete`,
+      statusurl: `${appBaseUrl}/api/payment/callback`,
+      reqtype: reqtype || "P",
+      restype: "JSON",
+    };
+
+    if (email) params.email = email;
+    if (tel) params.tel = tel;
+    if (linkId) params.param2 = linkId;
+
+    // fgkey 생성
+    params.fgkey = generateFgkey(params);
+
+    const funpayUrl =
+      process.env.FUNPAY_ENV === "production"
+        ? "https://online.funpay.co.kr/payment/payment.icb"
+        : "https://onlinetest.funpay.co.kr/payment/payment.icb";
+
+    console.log("[Payment] fgkey 생성 완료:", {
       orderId,
+      method,
       amount,
       currency,
-      buyerName,
-      productName,
-      reqtype: reqtype || "P",
+      mid: params.mid,
+      funpayUrl,
     });
 
-    const result = await requestPayment({
-      method: method as PaymentMethod,
-      orderId,
-      amount: String(amount),
-      currency,
-      buyerName,
-      productName,
-      reqtype: reqtype || "P",
-      email,
-      tel,
+    return NextResponse.json({
+      funpayUrl,
+      params,
     });
-
-    console.log("[Payment] FunPay 응답:", {
-      success: result.success,
-      rescode: result.rescode,
-      resmsg: result.resmsg,
-      transid: result.transid,
-      hasPaymentUrl: !!result.paymentUrl,
-    });
-
-    if (result.success) {
-      return NextResponse.json({
-        orderId,
-        transid: result.transid,
-        rescode: result.rescode,
-        paymentUrl: result.paymentUrl,
-        qrCode: result.qrCode,
-      });
-    }
-
-    return NextResponse.json(
-      {
-        error: result.resmsg,
-        rescode: result.rescode,
-      },
-      { status: 400 }
-    );
   } catch (error) {
     console.error("Payment request error:", error);
     return NextResponse.json(

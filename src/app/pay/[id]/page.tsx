@@ -73,8 +73,39 @@ export default function PayPage() {
 
       const data = await res.json();
 
-      if (res.ok && data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+      if (res.ok && data.funpayUrl && data.params) {
+        // FunPay로 직접 폼 POST (팝업)
+        const popup = window.open("", "ICBpay", "width=950,height=650,scrollbars=yes");
+        if (!popup) {
+          setStep("error");
+          setErrorMsg("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.");
+          return;
+        }
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = data.funpayUrl;
+        form.target = "ICBpay";
+
+        for (const [key, value] of Object.entries(data.params)) {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = value as string;
+          form.appendChild(input);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+
+        // 팝업 닫힘 감지
+        const checkPopup = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkPopup);
+            setStep("form");
+          }
+        }, 500);
       } else {
         setStep("error");
         setErrorMsg(data.error || "결제 요청에 실패했습니다.");
