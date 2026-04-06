@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "name": "K-뷰티 스킨케어 세트",
+    "price": "680",
+    "currency": "CNY",
+    "method": "all",
+    "description": "프리미엄 한국 화장품 5종 세트",
+    "id": "PL-mnmpsm4h",
+    "status": "active",
+    "clicks": 9,
+    "transactions": 0,
+    "createdAt": "2026-04-06"
+  },
+  {
+    "name": "후드티 200장",
+    "price": "2000000",
+    "currency": "KRW",
+    "method": "all",
+    "description": "후드티 색상별 50장씩",
+    "id": "PL-mnmq1i5a",
+    "status": "active",
+    "clicks": 4,
+    "transactions": 0,
+    "createdAt": "2026-04-06"
+  }
+]

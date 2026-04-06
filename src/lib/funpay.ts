@@ -28,18 +28,18 @@ export type PaymentMethod = keyof typeof SERVICE_TYPE;
  * 5. 대문자 변환
  */
 export function generateFgkey(params: Record<string, string>): string {
-  // key=value 쌍을 한줄로 연결
+  // 1. key=value 쌍을 &로 연결하여 파라미터 문자열 생성
   const paramString = Object.entries(params)
     .map(([key, value]) => `${key}=${value}`)
-    .join("");
+    .join("&");
 
-  // 문자 단위로 오름차순 정렬
+  // 2. 문자 단위로 오름차순 정렬 (공백 포함)
   const sorted = paramString.split("").sort().join("");
 
-  // secretkey + ? + 정렬된 문자열
+  // 3. secretkey + ? + 정렬된 문자열
   const hashInput = `${FUNPAY_SECRET_KEY}?${sorted}`;
 
-  // SHA-256 해싱 후 대문자
+  // 4. SHA-256 해싱 후 5. 대문자 변환
   return createHash("sha256").update(hashInput, "utf8").digest("hex").toUpperCase();
 }
 
@@ -107,13 +107,27 @@ export async function requestPayment(
   const data = await response.json();
 
   if (data.rescode === "0000") {
+    const resmsg = data.resmsg || "";
+
+    // resmsg가 쿼리스트링이면 알리페이 게이트웨이 URL 조합
+    let paymentUrl = resmsg;
+    if (resmsg.startsWith("?") || resmsg.startsWith("_input_charset")) {
+      const qs = resmsg.startsWith("?") ? resmsg : `?${resmsg}`;
+      paymentUrl = `https://intlmapi.alipay.com/gateway.do${qs}`;
+    } else if (resmsg.startsWith("http")) {
+      paymentUrl = resmsg;
+    } else if (resmsg.startsWith("weixin://") || resmsg.startsWith("{")) {
+      // 위챗 QR코드 또는 JSON 데이터
+      paymentUrl = "";
+    }
+
     return {
       success: true,
       transid: data.transid,
       rescode: data.rescode,
-      resmsg: decodeURIComponent(data.resmsg || ""),
-      paymentUrl: data.resmsg, // Mobile/H5일 경우 URL
-      qrCode: data.resmsg, // PC일 경우 QR 정보
+      resmsg: decodeURIComponent(resmsg),
+      paymentUrl,
+      qrCode: resmsg,
     };
   }
 
