@@ -35,6 +35,16 @@ export async function POST(request: NextRequest) {
     // 주문번호 생성
     const orderId = `ZP-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+    console.log("[Payment] 결제 요청:", {
+      method,
+      orderId,
+      amount,
+      currency,
+      buyerName,
+      productName,
+      reqtype: reqtype || "P",
+    });
+
     const result = await requestPayment({
       method: method as PaymentMethod,
       orderId,
@@ -45,6 +55,14 @@ export async function POST(request: NextRequest) {
       reqtype: reqtype || "P",
       email,
       tel,
+    });
+
+    console.log("[Payment] FunPay 응답:", {
+      success: result.success,
+      rescode: result.rescode,
+      resmsg: result.resmsg,
+      transid: result.transid,
+      hasPaymentUrl: !!result.paymentUrl,
     });
 
     if (result.success) {

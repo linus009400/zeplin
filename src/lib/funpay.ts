@@ -96,6 +96,12 @@ export async function requestPayment(
   // fgkey 생성 및 추가
   params.fgkey = generateFgkey(params);
 
+  console.log("[FunPay] 요청 URL:", `${FUNPAY_BASE_URL}/payment/payment.icb`);
+  console.log("[FunPay] 요청 파라미터:", {
+    ...params,
+    fgkey: params.fgkey.slice(0, 8) + "...",
+  });
+
   const response = await fetch(`${FUNPAY_BASE_URL}/payment/payment.icb`, {
     method: "POST",
     headers: {
@@ -105,6 +111,7 @@ export async function requestPayment(
   });
 
   const data = await response.json();
+  console.log("[FunPay] 응답:", JSON.stringify(data));
 
   if (data.rescode === "0000") {
     const resmsg = data.resmsg || "";
