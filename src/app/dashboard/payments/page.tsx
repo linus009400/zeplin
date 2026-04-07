@@ -186,7 +186,7 @@ export default function PaymentsPage() {
                   <th className="text-right px-5 py-3.5 font-medium">클릭</th>
                   <th className="text-right px-5 py-3.5 font-medium">거래</th>
                   <th className="text-right px-5 py-3.5 font-medium">생성일</th>
-                  <th className="text-center px-5 py-3.5 font-medium">액션</th>
+                  <th className="text-center px-5 py-3.5 font-medium">링크복사</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,21 +217,32 @@ export default function PaymentsPage() {
                     <td className="px-5 py-4 text-right text-sm text-gray-600">{link.transactions}</td>
                     <td className="px-5 py-4 text-right text-sm text-gray-500">{link.createdAt}</td>
                     <td className="px-5 py-4 text-center">
-                      <button
-                        onClick={() => copyLink(link.id)}
-                        className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100"
-                        title="결제 링크 복사"
-                      >
-                        {copied === link.id ? (
-                          <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => copyLink(link.id)}
+                          className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100"
+                          title="결제 링크 복사"
+                        >
+                          {copied === link.id ? (
+                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => window.open(`/pay/${link.id}`, "_blank", "width=480,height=700,scrollbars=yes")}
+                          className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-gray-100"
+                          title="결제 페이지 열기"
+                        >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                           </svg>
-                        )}
-                      </button>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
